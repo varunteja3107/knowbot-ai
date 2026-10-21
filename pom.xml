@@ -65,6 +65,23 @@
                     <mainClass>com.knowbot.Main</mainClass>
                 </configuration>
             </plugin>
+        
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>3.5.6</version>
+                <configuration>
+                    <mainClass>com.knowbot.web.KnowBotWebApplication</mainClass>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
     </build>
 </project>
