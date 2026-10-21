@@ -1,0 +1,27 @@
+# Java and Maven
+target/
+*.class
+
+# Local databases and SQLite files
+*.db
+*.sqlite
+*.sqlite3
+*.mv.db
+*.trace.db
+*-wal
+*-shm
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+
+# Editor and operating system files
+.DS_Store
+.idea/
+.vscode/
+
+# Backups and logs
+*.bak
+*.backup
+*.log

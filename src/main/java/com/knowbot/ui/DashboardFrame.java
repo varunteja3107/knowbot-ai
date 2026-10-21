@@ -1,0 +1,466 @@
+package com.knowbot.ui;
+
+import com.knowbot.dao.NoteDao;
+import com.knowbot.model.Note;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import java.awt.*;
+import java.sql.SQLException;
+import java.util.List;
+
+public class DashboardFrame extends JFrame {
+
+    private final NoteDao dao = new NoteDao();
+
+    private final JTextField titleField = new JTextField();
+    private final JTextField searchField = new JTextField();
+    private final JTextArea contentArea = new JTextArea();
+    private final JComboBox<String> categoryBox = new JComboBox<>(
+            new String[]{"General", "College", "Programming",
+                    "Research", "Personal", "Revision"}
+    );
+    private final JCheckBox favoriteBox =
+            new JCheckBox("Mark as favorite");
+
+    private final DefaultListModel<Note> listModel =
+            new DefaultListModel<>();
+    private final JList<Note> noteList = new JList<>(listModel);
+    private final JLabel statusLabel = new JLabel("Ready");
+
+    private final Color background = new Color(245, 247, 244);
+    private final Color green = new Color(34, 110, 70);
+    private final Color dark = new Color(36, 44, 39);
+    private final Color border = new Color(205, 218, 207);
+
+    private int selectedId = -1;
+    private boolean loading = false;
+
+    public DashboardFrame() {
+        setTitle("KnowBot AI | Knowledge Workspace");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(1150, 740);
+        setMinimumSize(new Dimension(900, 600));
+        setLocationRelativeTo(null);
+        getContentPane().setBackground(background);
+        setLayout(new BorderLayout());
+
+        add(createSidebar(), BorderLayout.WEST);
+        add(createWorkspace(), BorderLayout.CENTER);
+
+        noteList.addListSelectionListener(event -> {
+            if (!event.getValueIsAdjusting() && !loading) {
+                Note note = noteList.getSelectedValue();
+                if (note != null) {
+                    selectedId = note.getId();
+                    titleField.setText(note.getTitle());
+                    contentArea.setText(note.getContent());
+                    categoryBox.setSelectedItem(note.getCategory());
+                    favoriteBox.setSelected(note.isFavorite());
+                    statusLabel.setText("Selected: " + note.getTitle());
+                }
+            }
+        });
+
+        searchField.addActionListener(event -> refreshNotes());
+        refreshNotes();
+    }
+
+    private JPanel createSidebar() {
+        JPanel sidebar = new JPanel();
+        sidebar.setBackground(dark);
+        sidebar.setPreferredSize(new Dimension(210, 0));
+        sidebar.setBorder(new EmptyBorder(25, 16, 20, 16));
+        sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
+
+        JLabel logo = new JLabel("KnowBot AI");
+        logo.setFont(new Font("SansSerif", Font.BOLD, 25));
+        logo.setForeground(Color.WHITE);
+
+        JLabel subtitle = new JLabel("YOUR KNOWLEDGE SPACE");
+        subtitle.setFont(new Font("SansSerif", Font.PLAIN, 10));
+        subtitle.setForeground(new Color(190, 205, 193));
+
+        logo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        sidebar.add(logo);
+        sidebar.add(Box.createVerticalStrut(5));
+        sidebar.add(subtitle);
+        sidebar.add(Box.createVerticalStrut(40));
+
+        addNav(sidebar, "Dashboard", true);
+        addNav(sidebar, "My Notes", false);
+        addNav(sidebar, "AI Assistant", false);
+        addNav(sidebar, "Documents", false);
+        addNav(sidebar, "Study Quizzes", false);
+        addNav(sidebar, "Quiz History", false);
+        addNav(sidebar, "Study Planner", false);
+
+        sidebar.add(Box.createVerticalGlue());
+
+        JLabel footer = new JLabel("KNOWLEDGE WORKSPACE");
+        footer.setForeground(new Color(190, 205, 193));
+        footer.setFont(new Font("SansSerif", Font.PLAIN, 10));
+        sidebar.add(footer);
+
+        return sidebar;
+    }
+
+    private void addNav(JPanel panel, String text, boolean active) {
+        JButton button = new JButton(text);
+        button.setAlignmentX(Component.LEFT_ALIGNMENT);
+        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
+        button.setPreferredSize(new Dimension(178, 42));
+        button.setHorizontalAlignment(SwingConstants.LEFT);
+        button.setForeground(Color.WHITE);
+        button.setBackground(active ? green : dark);
+        button.setOpaque(true);
+        button.setFocusPainted(false);
+        button.setBorderPainted(false);
+
+        button.addActionListener(event -> {
+            System.out.println("NAVIGATION CLICKED: " + text);
+            if (text.equals("My Notes")) {
+                setVisible(true);
+                setExtendedState(JFrame.NORMAL);
+                refreshNotes();
+                toFront();
+                requestFocusInWindow();
+            } else if (text.equals("Documents")) {
+                new DocumentsFrame().setVisible(true);
+            } else if (text.equals("AI Assistant")) {
+                new AIAssistantFrame().setVisible(true);
+            } else if (text.equals("Study Quizzes")) {
+                new StudyQuizFrame().setVisible(true);
+            } else if (text.equals("Quiz History")) {
+                new QuizHistoryFrame().setVisible(true);
+            } else if (text.equals("Study Planner")) {
+                new StudyPlannerFrame().setVisible(true);
+            } else if (text.equals("Dashboard")) {
+                new AdvancedDashboardFrame().setVisible(true);
+            } else {
+                JOptionPane.showMessageDialog(
+                    this,
+                    text + " will be added in a later stage.",
+                    "Coming Soon",
+                    JOptionPane.INFORMATION_MESSAGE
+                );
+            }
+        });
+
+        panel.add(button);
+        panel.add(Box.createVerticalStrut(8));
+    }
+
+    private JPanel createWorkspace() {
+        JPanel workspace = new JPanel(new BorderLayout(0, 18));
+        workspace.setBackground(background);
+        workspace.setBorder(new EmptyBorder(25, 25, 20, 25));
+
+        JLabel heading = new JLabel("Your Knowledge Workspace");
+        heading.setFont(new Font("SansSerif", Font.BOLD, 27));
+        heading.setForeground(dark);
+
+        JLabel description = new JLabel(
+                "Create, organize, search and manage your notes."
+        );
+        description.setForeground(new Color(105, 115, 107));
+
+        JPanel headingBox = new JPanel();
+        headingBox.setOpaque(false);
+        headingBox.setLayout(new BoxLayout(headingBox, BoxLayout.Y_AXIS));
+        headingBox.add(heading);
+        headingBox.add(Box.createVerticalStrut(7));
+        headingBox.add(description);
+
+        JButton refreshButton = new JButton("Refresh");
+        refreshButton.addActionListener(event -> refreshNotes());
+
+        JPanel top = new JPanel(new BorderLayout());
+        top.setOpaque(false);
+        top.add(headingBox, BorderLayout.CENTER);
+        top.add(refreshButton, BorderLayout.EAST);
+        workspace.add(top, BorderLayout.NORTH);
+
+        JPanel editor = new JPanel(new BorderLayout(0, 12));
+        editor.setBackground(Color.WHITE);
+        editor.setBorder(new EmptyBorder(18, 18, 18, 18));
+
+        JLabel editorHeading = new JLabel("NOTE EDITOR");
+        editorHeading.setFont(new Font("SansSerif", Font.BOLD, 13));
+        editorHeading.setForeground(green);
+
+        titleField.setFont(new Font("SansSerif", Font.BOLD, 17));
+        titleField.setForeground(dark);
+        titleField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(border),
+                new EmptyBorder(10, 10, 10, 10)
+        ));
+
+        categoryBox.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        favoriteBox.setOpaque(false);
+        favoriteBox.setForeground(green);
+
+        JPanel metadata = new JPanel(new GridLayout(1, 2, 10, 0));
+        metadata.setOpaque(false);
+        metadata.add(categoryBox);
+        metadata.add(favoriteBox);
+
+        JPanel editorTop = new JPanel(new BorderLayout(0, 10));
+        editorTop.setOpaque(false);
+        editorTop.add(editorHeading, BorderLayout.NORTH);
+
+        JPanel titleAndCategory = new JPanel(new BorderLayout(0, 8));
+        titleAndCategory.setOpaque(false);
+        titleAndCategory.add(titleField, BorderLayout.NORTH);
+        titleAndCategory.add(metadata, BorderLayout.CENTER);
+        editorTop.add(titleAndCategory, BorderLayout.CENTER);
+
+        contentArea.setFont(new Font("SansSerif", Font.PLAIN, 15));
+        contentArea.setForeground(dark);
+        contentArea.setLineWrap(true);
+        contentArea.setWrapStyleWord(true);
+        contentArea.setMargin(new Insets(12, 12, 12, 12));
+        contentArea.setBorder(BorderFactory.createLineBorder(border));
+
+        JScrollPane contentScroll = new JScrollPane(contentArea);
+        contentScroll.setBorder(null);
+
+        JButton saveButton = new JButton("Save Note");
+        saveButton.setFont(new Font("SansSerif", Font.BOLD, 14));
+        saveButton.setForeground(Color.WHITE);
+        saveButton.setBackground(green);
+        saveButton.setOpaque(true);
+        saveButton.setContentAreaFilled(true);
+        saveButton.setBorderPainted(false);
+        saveButton.setFocusPainted(false);
+        saveButton.setPreferredSize(new Dimension(125, 40));
+        saveButton.addActionListener(event -> saveNote());
+
+        JButton newButton = new JButton("New Note");
+        newButton.setPreferredSize(new Dimension(100, 40));
+        newButton.addActionListener(event -> clearEditor());
+
+        JButton deleteButton = new JButton("Delete");
+        deleteButton.setForeground(new Color(160, 45, 45));
+        deleteButton.setPreferredSize(new Dimension(85, 40));
+        deleteButton.addActionListener(event -> deleteNote());
+
+        JPanel buttons = new JPanel(
+                new FlowLayout(FlowLayout.RIGHT, 8, 0)
+        );
+        buttons.setOpaque(false);
+        buttons.add(deleteButton);
+        buttons.add(newButton);
+        buttons.add(saveButton);
+
+        JPanel bottom = new JPanel(new BorderLayout());
+        bottom.setOpaque(false);
+        bottom.add(statusLabel, BorderLayout.WEST);
+        bottom.add(buttons, BorderLayout.EAST);
+
+        editor.add(editorTop, BorderLayout.NORTH);
+        editor.add(contentScroll, BorderLayout.CENTER);
+        editor.add(bottom, BorderLayout.SOUTH);
+
+        JPanel savedPanel = new JPanel(new BorderLayout(0, 10));
+        savedPanel.setBackground(Color.WHITE);
+        savedPanel.setBorder(new EmptyBorder(15, 12, 12, 12));
+        savedPanel.setPreferredSize(new Dimension(275, 0));
+
+        JLabel savedHeading = new JLabel("SAVED NOTES");
+        savedHeading.setForeground(green);
+        savedHeading.setFont(new Font("SansSerif", Font.BOLD, 13));
+
+        searchField.setToolTipText("Search titles, content or categories");
+        searchField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(border),
+                new EmptyBorder(8, 8, 8, 8)
+        ));
+
+        JButton searchButton = new JButton("Search");
+        searchButton.addActionListener(event -> refreshNotes());
+
+        JPanel searchPanel = new JPanel(new BorderLayout(5, 0));
+        searchPanel.setOpaque(false);
+        searchPanel.add(searchField, BorderLayout.CENTER);
+        searchPanel.add(searchButton, BorderLayout.EAST);
+
+        JPanel savedTop = new JPanel(new BorderLayout(0, 10));
+        savedTop.setOpaque(false);
+        savedTop.add(savedHeading, BorderLayout.NORTH);
+        savedTop.add(searchPanel, BorderLayout.CENTER);
+
+        noteList.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        noteList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        noteList.setFixedCellHeight(42);
+        noteList.setSelectionBackground(new Color(220, 238, 224));
+
+        savedPanel.add(savedTop, BorderLayout.NORTH);
+        savedPanel.add(new JScrollPane(noteList), BorderLayout.CENTER);
+
+        JSplitPane split = new JSplitPane(
+                JSplitPane.HORIZONTAL_SPLIT, editor, savedPanel
+        );
+        split.setResizeWeight(0.70);
+        split.setDividerLocation(0.70);
+        split.setBorder(null);
+
+        workspace.add(split, BorderLayout.CENTER);
+        return workspace;
+    }
+
+    private void saveNote() {
+        String title = titleField.getText().trim();
+        String content = contentArea.getText().trim();
+        String category = (String) categoryBox.getSelectedItem();
+        boolean favorite = favoriteBox.isSelected();
+
+        if (title.isEmpty() || content.isEmpty()) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Enter both a title and some content.",
+                    "Missing Information",
+                    JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        try {
+            if (selectedId == -1) {
+                dao.saveNote(title, content, category, favorite);
+                statusLabel.setText("Note created successfully.");
+            } else {
+                dao.updateNote(
+                        selectedId, title, content, category, favorite
+                );
+                statusLabel.setText("Note updated successfully.");
+            }
+
+            int savedId = selectedId;
+            refreshNotes();
+
+            if (savedId != -1) {
+                selectNoteById(savedId);
+            }
+
+        } catch (SQLException exception) {
+            showError(exception);
+        }
+    }
+
+    private void deleteNote() {
+        if (selectedId == -1) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Select a saved note before deleting it.",
+                    "No Note Selected",
+                    JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        int answer = JOptionPane.showConfirmDialog(
+                this,
+                "Permanently delete this note?",
+                "Confirm Deletion",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+
+        if (answer != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        try {
+            dao.deleteNote(selectedId);
+            clearEditor();
+            refreshNotes();
+            statusLabel.setText("Note deleted.");
+        } catch (SQLException exception) {
+            showError(exception);
+        }
+    }
+
+    private void refreshNotes() {
+        try {
+            List<Note> notes = dao.searchNotes(searchField.getText().trim());
+            int previousId = selectedId;
+
+            loading = true;
+            listModel.clear();
+
+            int indexToSelect = -1;
+            for (int i = 0; i < notes.size(); i++) {
+                Note note = notes.get(i);
+                listModel.addElement(note);
+
+                if (note.getId() == previousId) {
+                    indexToSelect = i;
+                }
+            }
+
+            if (indexToSelect >= 0) {
+                noteList.setSelectedIndex(indexToSelect);
+            } else if (!notes.isEmpty()) {
+                noteList.setSelectedIndex(0);
+            } else {
+                selectedId = -1;
+                titleField.setText("");
+                contentArea.setText("");
+                favoriteBox.setSelected(false);
+                statusLabel.setText("No matching notes found.");
+            }
+
+            loading = false;
+
+            if (indexToSelect < 0 && !notes.isEmpty()) {
+                Note first = notes.get(0);
+                selectedId = first.getId();
+                titleField.setText(first.getTitle());
+                contentArea.setText(first.getContent());
+                categoryBox.setSelectedItem(first.getCategory());
+                favoriteBox.setSelected(first.isFavorite());
+            }
+
+        } catch (SQLException exception) {
+            loading = false;
+            showError(exception);
+        }
+    }
+
+    private void selectNoteById(int id) {
+        for (int i = 0; i < listModel.size(); i++) {
+            if (listModel.get(i).getId() == id) {
+                noteList.setSelectedIndex(i);
+                noteList.ensureIndexIsVisible(i);
+                return;
+            }
+        }
+    }
+
+    private void clearEditor() {
+        loading = true;
+        noteList.clearSelection();
+        loading = false;
+
+        selectedId = -1;
+        titleField.setText("");
+        contentArea.setText("");
+        categoryBox.setSelectedItem("General");
+        favoriteBox.setSelected(false);
+        statusLabel.setText("Creating a new note.");
+        titleField.requestFocusInWindow();
+    }
+
+    private void showError(SQLException exception) {
+        exception.printStackTrace();
+        JOptionPane.showMessageDialog(
+                this,
+                "Database error:\n" + exception.getMessage(),
+                "KnowBot AI",
+                JOptionPane.ERROR_MESSAGE
+        );
+    }
+}
